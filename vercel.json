@@ -1,0 +1,9 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "miniprojet.py",
+        "use": "@vercel/python"
+      }
+    ]
+  }
