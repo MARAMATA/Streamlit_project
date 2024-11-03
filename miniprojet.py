@@ -85,8 +85,8 @@ url_github = "https://raw.githubusercontent.com/MARAMATA/Streamlit_project/maste
 # 1. Chargement du fichier de données
 fichier = st.file_uploader("📁 Charger le fichier de données des ventes", type=["csv", "txt", "xlsx", "xls"])
 
-def charger_dataframe(fichier=None, url=None):
-    """Fonction pour charger le dataframe depuis un fichier ou une URL GitHub."""
+def charger_dataframe(fichier, chemin=None, url=None):
+    """Fonction pour charger le dataframe depuis un fichier, un chemin local ou une URL."""
     try:
         # Charger depuis le fichier uploadé
         if fichier:
@@ -96,16 +96,27 @@ def charger_dataframe(fichier=None, url=None):
                 df = pd.read_excel(fichier)
             elif fichier.name.endswith('.txt'):
                 df = pd.read_csv(fichier, delimiter="\t")
-        # Charger depuis l'URL GitHub si `fichier` n'est pas fourni
+
+        # Charger depuis le fichier local
+        elif chemin:
+            df = pd.read_csv(chemin)
+
+        # Charger depuis l'URL GitHub si `url` est fourni
         elif url:
             df = pd.read_csv(url)
+
+        # Vérifier et essayer d'autres délimiteurs si nécessaire
+        if len(df.columns) == 1:
+            df = pd.read_csv(fichier or chemin or url, delimiter=';')
+        if len(df.columns) == 1:
+            df = pd.read_csv(fichier or chemin or url, delimiter='\t')
         return df
     except Exception as e:
         st.error(f"Erreur lors du chargement du fichier : {e}")
         return None
 
 # Charger le jeu de données
-df = charger_dataframe(fichier=fichier, url=url_github)
+df = charger_dataframe(fichier, "Superstore_filtered.csv", url=url_github)
 
 # Vérification du chargement des données avant de continuer
 if df is not None:
@@ -138,13 +149,17 @@ else:
 st.header("Sélection de la période")
 col1, col2 = st.columns(2)
 
+# Define min and max date for selection to prevent out-of-range errors
+min_date = df["Order_date"].min()
+max_date = df["Order_date"].max()
+
 with col1:
-    date_debut = pd.to_datetime(st.date_input("Date de début", df["Order_date"].min()).strftime('%Y-%m-%d'))
+    date_debut = pd.to_datetime(st.date_input("Date de début", min_date, min_value=min_date, max_value=max_date).strftime('%Y-%m-%d'))
 
 with col2:
-    date_fin = pd.to_datetime(st.date_input("Date de fin", df["Order_date"].max()).strftime('%Y-%m-%d'))
+    date_fin = pd.to_datetime(st.date_input("Date de fin", max_date, min_value=min_date, max_value=max_date).strftime('%Y-%m-%d'))
 
-# Filtrer le dataframe en fonction de la période sélectionnée
+# Filter the dataframe based on the selected period
 df = df[(df["Order_date"] >= date_debut) & (df["Order_date"] <= date_fin)].copy()
 
 # 4. Filtres interactifs dans la barre latérale
@@ -257,11 +272,30 @@ if "Order_date" in df_filtre.columns:
     fig_ventes_mensuelles.update_layout(xaxis_title="Mois-Annee", yaxis_title="Ventes")
     st.plotly_chart(fig_ventes_mensuelles, use_container_width=True)
 
-# 12. Ventes par état (Carte géographique)
-if "Latitude" in df_filtre.columns and "Longitude" in df_filtre.columns:
-    st.subheader("Carte des ventes par état")
-    fig_map = px.scatter_geo(df_filtre, lat="Latitude", lon="Longitude", color="Total",
-                             hover_name="State_complet", size="Total", template="plotly_white",
-                             title="Ventes par état", projection="natural earth")
-    st.plotly_chart(fig_map, use_container_width=True)
+# Calculer le nombre total de ventes par État
+if 'Total' in df.columns and 'State' in df.columns:
+    ventes_par_etat = df.groupby('State').agg({'Total': 'sum'}).reset_index()
+    
+    # Récupérer les informations de latitude, longitude, et nom complet pour chaque état
+    ventes_par_etat["Latitude"] = ventes_par_etat["State"].map(lambda x: state_info.get(x, {}).get("latitude", None))
+    ventes_par_etat["Longitude"] = ventes_par_etat["State"].map(lambda x: state_info.get(x, {}).get("longitude", None))
+    ventes_par_etat["State_full_name"] = ventes_par_etat["State"].map(lambda x: state_info.get(x, {}).get("full_name", ""))
+
+    # Créer une carte choroplèthe pour colorier les états en fonction du total des ventes
+    st.subheader("Nombre total de ventes par État")
+    fig = px.choropleth(
+        ventes_par_etat,
+        locations="State",  # Use the state abbreviations
+        locationmode="USA-states",
+        color="Total",
+        hover_name="State_full_name",
+        hover_data={"Total": True},
+        color_continuous_scale="Blues",  # Color scale for the states
+        scope="usa",
+        template="plotly_white",
+        title="Carte des ventes totales par État"
+    )
+
+    # Afficher la carte dans Streamlit
+    st.plotly_chart(fig, use_container_width=True)
 

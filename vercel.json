@@ -4,10 +4,7 @@
         "src": "miniprojet.py",
         "use": "@vercel/python",
         "config": {
-          "maxLambdaSize": "50mb",
-          "includeFiles": [
-            "Superstore_filtered.csv"
-          ]
+          "maxLambdaSize": "50mb"
         }
       }
     ],
