@@ -80,7 +80,7 @@ state_info = {
 }
 
 # URL GitHub pour le fichier Superstore.csv
-url_github = "https://raw.githubusercontent.com/MARAMATA/Mini_projet_Streamlit/master/Superstore.csv"
+url_github = "https://raw.githubusercontent.com/MARAMATA/Streamlit_project/master/Superstore_filtered.csv"
 
 # 1. Chargement du fichier de données
 fichier = st.file_uploader("📁 Charger le fichier de données des ventes", type=["csv", "txt", "xlsx", "xls"])
